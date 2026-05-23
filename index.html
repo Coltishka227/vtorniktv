@@ -3,127 +3,154 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Телеканал Вторник!</title>
+<title>Вторник! TV</title>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
 <style>
-html, body{
-    margin:0;
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    background:black;
-    font-family:Arial;
+html, body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+    overflow: hidden;
+    font-family: Arial;
 }
 
-#video{
-    width:100%;
-    height:100%;
-    object-fit:contain;
-    background:black;
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: black;
 }
 
-.logo{
-    position:absolute;
-    top:15px;
-    left:20px;
-    color:white;
-    font-size:28px;
-    font-weight:bold;
-    z-index:999;
-    text-shadow:0 0 10px black;
+.logo {
+    position: absolute;
+    top: 15px;
+    left: 20px;
+    color: white;
+    font-size: 26px;
+    font-weight: bold;
+    z-index: 10;
+    text-shadow: 0 0 10px black;
 }
 
-.live{
-    position:absolute;
-    top:15px;
-    right:20px;
-    color:red;
-    font-size:24px;
-    font-weight:bold;
-    z-index:999;
-    animation:blink 1s infinite;
+.status {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 10;
+    padding: 6px 10px;
+    border-radius: 6px;
+    color: white;
 }
 
-@keyframes blink{
-    50%{
-        opacity:0.4;
-    }
+.live {
+    background: red;
+    animation: blink 1s infinite;
+}
+
+.buffer {
+    background: orange;
+}
+
+.offline {
+    background: gray;
+}
+
+@keyframes blink {
+    50% { opacity: 0.5; }
 }
 </style>
 </head>
+
 <body>
 
 <div class="logo">📺 Вторник!</div>
-<div class="live">● LIVE</div>
+<div id="status" class="status offline">OFFLINE</div>
 
-<video
-    id="video"
-    controls
-    autoplay
-    playsinline
-></video>
+<video id="video" autoplay muted playsinline controls></video>
 
 <script>
 
 const video = document.getElementById('video');
+const statusEl = document.getElementById('status');
 
-const stream =
-'https://mow-3-fd.facecast.io:8443/hls_re/07ce0b3a422c0ffc9312.m3u8';
+const stream = "https://mow-3-fd.facecast.io:8443/hls_re/07ce0b3a422c0ffc9312.m3u8";
 
-if (Hls.isSupported()) {
+let hls;
 
-    const hls = new Hls({
+function setStatus(type) {
+    statusEl.className = "status " + type;
 
-        lowLatencyMode: true,
-
-        liveSyncDurationCount: 1,
-        liveMaxLatencyDurationCount: 2,
-
-        maxBufferLength: 1,
-        maxMaxBufferLength: 2,
-
-        backBufferLength: 0,
-
-        enableWorker: true
-
-    });
-
-    hls.loadSource(stream);
-    hls.attachMedia(video);
-
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-
-        video.play();
-
-    });
-
-    hls.on(Hls.Events.FRAG_BUFFERED, () => {
-
-        if(video.buffered.length){
-
-            const end = video.buffered.end(0);
-
-            if(end - video.currentTime > 1){
-
-                video.currentTime = end - 0.2;
-
-            }
-        }
-    });
-
-} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-
-    video.src = stream;
-
-    video.addEventListener('loadedmetadata', () => {
-
-        video.play();
-
-    });
+    if (type === "live") statusEl.innerText = "● LIVE";
+    if (type === "buffer") statusEl.innerText = "⏳ BUFFERING";
+    if (type === "offline") statusEl.innerText = "OFFLINE";
 }
+
+function startStream() {
+
+    if (hls) {
+        hls.destroy();
+    }
+
+    if (Hls.isSupported()) {
+
+        hls = new Hls({
+            lowLatencyMode: false,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 6,
+            maxBufferLength: 20,
+            backBufferLength: 10
+        });
+
+        hls.loadSource(stream);
+        hls.attachMedia(video);
+
+        setStatus("buffer");
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play();
+            setStatus("live");
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+
+            console.log("HLS error:", data);
+
+            if (data.fatal) {
+
+                setStatus("offline");
+
+                setTimeout(() => {
+                    startStream(); // авто-переподключение
+                }, 3000);
+            }
+        });
+
+        video.addEventListener("waiting", () => {
+            setStatus("buffer");
+        });
+
+        video.addEventListener("playing", () => {
+            setStatus("live");
+        });
+
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+
+        video.src = stream;
+
+        video.addEventListener('loadedmetadata', () => {
+            video.play();
+            setStatus("live");
+        });
+    }
+}
+
+// автостарт
+startStream();
 
 </script>
 
