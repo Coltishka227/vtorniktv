@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Телеканал Вторник!</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<style>
+html, body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:black;
+    font-family:Arial;
+}
+
+#video{
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    background:black;
+}
+
+.logo{
+    position:absolute;
+    top:15px;
+    left:20px;
+    color:white;
+    font-size:28px;
+    font-weight:bold;
+    z-index:999;
+    text-shadow:0 0 10px black;
+}
+
+.live{
+    position:absolute;
+    top:15px;
+    right:20px;
+    color:red;
+    font-size:24px;
+    font-weight:bold;
+    z-index:999;
+    animation:blink 1s infinite;
+}
+
+@keyframes blink{
+    50%{
+        opacity:0.4;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="logo">📺 Вторник!</div>
+<div class="live">● LIVE</div>
+
+<video
+    id="video"
+    controls
+    autoplay
+    playsinline
+></video>
+
+<script>
+
+const video = document.getElementById('video');
+
+const stream =
+'https://mow-3-fd.facecast.io:8443/hls_re/07ce0b3a422c0ffc9312.m3u8';
+
+if (Hls.isSupported()) {
+
+    const hls = new Hls({
+
+        lowLatencyMode: true,
+
+        liveSyncDurationCount: 1,
+        liveMaxLatencyDurationCount: 2,
+
+        maxBufferLength: 1,
+        maxMaxBufferLength: 2,
+
+        backBufferLength: 0,
+
+        enableWorker: true
+
+    });
+
+    hls.loadSource(stream);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+
+        video.play();
+
+    });
+
+    hls.on(Hls.Events.FRAG_BUFFERED, () => {
+
+        if(video.buffered.length){
+
+            const end = video.buffered.end(0);
+
+            if(end - video.currentTime > 1){
+
+                video.currentTime = end - 0.2;
+
+            }
+        }
+    });
+
+} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+
+    video.src = stream;
+
+    video.addEventListener('loadedmetadata', () => {
+
+        video.play();
+
+    });
+}
+
+</script>
+
+</body>
+</html>
